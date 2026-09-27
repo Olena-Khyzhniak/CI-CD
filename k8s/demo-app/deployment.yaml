@@ -27,6 +27,9 @@ spec:
           image: demo-app:v1        # TODO: update to ECR URL!!!
           ports:
             - containerPort: 80
+          envFrom:
+            - configMapRef:
+                name: demo-app-config    # Use the ConfigMap to inject environment variables into the container
           resources:
             requests:
               memory: "64Mi"
