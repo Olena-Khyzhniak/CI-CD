@@ -1,8 +1,0 @@
-# Isolates demo-app resources from other workloads in the cluster by creating a dedicated namespace.
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: demo-app
-  labels:
-    name: demo-app
-    istio-injection: enabled  # Enables Istio sidecar injection for pods in this namespace  
