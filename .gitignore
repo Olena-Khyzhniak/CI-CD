@@ -230,3 +230,6 @@ lerna-debug.log*
 coverage/
 dist/
 .env*
+
+# Kubernetes secrets
+/k8s/demo-app/secret.yaml

@@ -1,0 +1,11 @@
+# Stores non-sensitive configuration data in key-value pairs for the demo application (version, environment settings)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-app-config
+  namespace: demo-app
+  labels:
+    app: demo-app 
+data:
+  APP_VERSION: "v1"
+  APP_ENV: "production"
