@@ -1,8 +1,11 @@
+# Exposes the demo-app pods to external traffic via a LoadBalancer service on port 80. 
+# This service will route incoming requests to the demo-app pods based on the label selector.
+
 apiVersion: v1
 kind: Service
 metadata:
   name: demo-app-service
-  namespace: default
+  namespace: demo-app
   labels:
     app: demo-app      # The service is associated with the demo-app deployment (finds pods with the same label)
 spec:
