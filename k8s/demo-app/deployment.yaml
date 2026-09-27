@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: demo-app
-  namespace: default
+  namespace: demo-app
   labels:
     app: demo-app
     version: v1
@@ -30,6 +30,8 @@ spec:
           envFrom:
             - configMapRef:
                 name: demo-app-config    # Use the ConfigMap to inject environment variables into the container
+            - secretRef:
+                name: demo-app-secret    # Use the Secret to inject sensitive environment variables into the container
           resources:
             requests:
               memory: "64Mi"
