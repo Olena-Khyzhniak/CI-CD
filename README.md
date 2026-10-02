@@ -5,7 +5,7 @@ The main goal of the project is to deploy a highly available application on a Ku
 
 
 **TODO:**
-- k8s/demo-app/deployment.yaml => image: demo-app:v1        # TODO: update to ECR URL!!!
+- k8s/demo-app/deployment.yaml => image: demo-app:v1        # TODO: update to ECR URL!!! But it can be unchanged as I use ci-cd.yaml set ECR_REGISTRY automatically. 
 
 
 

@@ -32,7 +32,7 @@ jobs:
       - name: Build and push Docker image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: demo-app
+          ECR_REPOSITORY: ci-cd/demo-app
           IMAGE_TAG: ${{ github.ref_name }}     # v1.0.0, v2.0.0 etc
 
         run: |
@@ -70,13 +70,14 @@ jobs:
 
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ci-cd/demo-app
           IMAGE_TAG: ${{ github.ref_name }}
 
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: ECR_REGISTRY,IMAGE_TAG
+          envs: ECR_REGISTRY,IMAGE_TAG,ECR_REPOSITORY    # send these env vars to the remote host (SSH script/server)
 
           script: |
             aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | \
@@ -90,8 +91,8 @@ jobs:
             microk8s kubectl apply -f k8s/demo-app/hpa.yaml
 
             microk8s kubectl set image deployment/demo-app \
-              demo-app-container=$ECR_REGISTRY/demo-app:$IMAGE_TAG \
+              demo-app-container=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
               -n demo-app
 
-            microk8s kubectl rollout status deployment/demo-app -n demo-app
+            microk8s kubectl rollout status deployment/demo-app -n demo-app   # wait for the rollout to complete
 
