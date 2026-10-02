@@ -1,3 +1,8 @@
+# Deploys demo-app with 3 replicas, using a rolling update strategy to ensure zero downtime during updates. 
+# The deployment uses a ConfigMap and Secret to inject environment variables into the container, 
+# and includes resource requests and limits for better resource management. 
+# A readiness probe is also configured to check if the pod is ready to serve traffic.
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
