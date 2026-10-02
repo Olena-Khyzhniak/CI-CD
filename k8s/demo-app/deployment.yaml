@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
         - name: demo-app-container
-          image: demo-app:v1        # TODO: update to ECR URL!!!
+          image: demo-app:v1        # TODO: update to ECR URL!!! This is a local name. ci-cd will replace this with the ECR URL during deployment.
           ports:
             - containerPort: 80
           envFrom:

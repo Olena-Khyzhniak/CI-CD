@@ -4,5 +4,5 @@ kind: Namespace
 metadata:
   name: demo-app
   labels:
-    name: demo-app
+    name: demo-app   # k8s label to identify the namespace
     istio-injection: enabled  # Enables Istio sidecar injection for pods in this namespace  
