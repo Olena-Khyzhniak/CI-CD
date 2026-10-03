@@ -93,6 +93,10 @@ jobs:
             microk8s kubectl set image deployment/demo-app \
               demo-app-container=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
               -n demo-app
-
+            microk8s helm3 upgrade prometheus \
+            prometheus-community/kube-prometheus-stack \
+            --namespace monitoring \
+            --values monitoring/prometheus-values.yaml \
+            --install
             microk8s kubectl rollout status deployment/demo-app -n demo-app   # wait for the rollout to complete
 
