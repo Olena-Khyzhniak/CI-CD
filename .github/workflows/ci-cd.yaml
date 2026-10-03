@@ -97,6 +97,6 @@ jobs:
             prometheus-community/kube-prometheus-stack \
             --namespace monitoring \
             --values monitoring/prometheus-values.yaml \
-            --install
+            --install               # GitHub Actions workflow
             microk8s kubectl rollout status deployment/demo-app -n demo-app   # wait for the rollout to complete
 
