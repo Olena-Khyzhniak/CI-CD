@@ -80,7 +80,7 @@ jobs:
           envs: ECR_REGISTRY,IMAGE_TAG,ECR_REPOSITORY    # send these env vars to the remote host (SSH script/server)
 
           script: |
-            cd /home/ubuntu/ci-cd
+            cd /home/ubuntu/CI-CD
             git pull origin main
 
             microk8s kubectl create secret generic demo-app-secret \
