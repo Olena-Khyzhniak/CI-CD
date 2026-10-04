@@ -80,12 +80,19 @@ jobs:
           envs: ECR_REGISTRY,IMAGE_TAG,ECR_REPOSITORY    # send these env vars to the remote host (SSH script/server)
 
           script: |
+            cd /home/ubuntu/ci-cd
+            git pull origin main
+
+            microk8s kubectl create secret generic demo-app-secret \
+              --from-literal=VITE_TMDB_KEY=${{ secrets.VITE_TMDB_KEY }} \
+              --namespace=demo-app --dry-run=client -o yaml | microk8s kubectl apply -f -
+
             aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | \
               docker login --username AWS --password-stdin $ECR_REGISTRY
 
             microk8s kubectl apply -f k8s/demo-app/namespace.yaml
             microk8s kubectl apply -f k8s/demo-app/configmap.yaml
-            microk8s kubectl apply -f k8s/demo-app/secret.yaml
+            # microk8s kubectl apply -f k8s/demo-app/secret.yaml
             microk8s kubectl apply -f k8s/demo-app/deployment.yaml
             microk8s kubectl apply -f k8s/demo-app/service.yaml
             microk8s kubectl apply -f k8s/demo-app/hpa.yaml
@@ -94,9 +101,9 @@ jobs:
               demo-app-container=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
               -n demo-app
             microk8s helm3 upgrade prometheus \
-            prometheus-community/kube-prometheus-stack \
-            --namespace monitoring \
-            --values monitoring/prometheus-values.yaml \
-            --install               # GitHub Actions workflow
+              prometheus-community/kube-prometheus-stack \
+              --namespace monitoring \
+              --values monitoring/prometheus-values.yaml \
+              --install               # GitHub Actions workflow
             microk8s kubectl rollout status deployment/demo-app -n demo-app   # wait for the rollout to complete
 
