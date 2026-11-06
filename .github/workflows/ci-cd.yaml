@@ -84,15 +84,22 @@ jobs:
             cd /home/ubuntu/CI-CD
             git pull origin main
 
-            # Apply namespace first so the secret create command below has a namespace to target
+            # Apply namespace first so all subsequent commands have a namespace to target
             microk8s kubectl apply -f k8s/demo-app/namespace.yaml
 
             microk8s kubectl create secret generic demo-app-secret \
               --from-literal=VITE_TMDB_KEY=${{ secrets.VITE_TMDB_KEY }} \
               --namespace=demo-app --dry-run=client -o yaml | microk8s kubectl apply -f -
 
-            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | \
-              docker login --username AWS --password-stdin $ECR_REGISTRY
+            # Refresh ECR login token (valid 12h) and create/update imagePullSecret in namespace
+            ECR_PASSWORD=$(aws ecr get-login-password --region ${{ secrets.AWS_REGION }})
+            docker login --username AWS --password-stdin $ECR_REGISTRY <<< "$ECR_PASSWORD"
+            microk8s kubectl create secret docker-registry ecr-credentials \
+              --docker-server=$ECR_REGISTRY \
+              --docker-username=AWS \
+              --docker-password="$ECR_PASSWORD" \
+              --namespace=demo-app \
+              --dry-run=client -o yaml | microk8s kubectl apply -f -
 
             microk8s kubectl apply -f k8s/demo-app/configmap.yaml
             # microk8s kubectl apply -f k8s/demo-app/secret.yaml
