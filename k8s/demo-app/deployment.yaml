@@ -27,6 +27,8 @@ spec:
         app: demo-app
         version: v1
     spec:
+      imagePullSecrets:
+        - name: ecr-credentials   # created/refreshed by CI/CD on every deploy (ECR token valid 12h)
       containers:
         - name: demo-app-container
           image: demo-app:v1        # TODO: update to ECR URL!!! This is a local name. ci-cd will replace this with the ECR URL during deployment.
