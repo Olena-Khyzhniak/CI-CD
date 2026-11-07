@@ -5,4 +5,4 @@ metadata:
   name: demo-app
   labels:
     name: demo-app   # k8s label to identify the namespace
-    istio-injection: enabled  # Enables Istio sidecar injection for pods in this namespace  
+    # istio-injection: enabled  # Uncomment to re-enable Istio sidecar injection (disabled: cross-node VXLAN issue, see GitHub issue)
