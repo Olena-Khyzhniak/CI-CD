@@ -1,0 +1,28 @@
+# ClusterIssuer: tells cert-manager to use Let's Encrypt to issue TLS certificates.
+# Uses HTTP-01 challenge via nginx Ingress to prove domain ownership.
+#
+# podTemplate.nodeSelector pins the ACME HTTP-01 solver pod to cicd-master.
+# Required because nginx Ingress controller runs on master (hostPort 80/443),
+# and cross-node pod TCP is broken in this cluster (VXLAN issue).
+# Without pinning, the solver pod may land on the worker — nginx cannot
+# reach it, the self-check fails, and the certificate is never issued.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: 20106012@setu.ie
+    privateKeySecretRef:
+      name: letsencrypt-prod-key
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: nginx
+            podTemplate:
+              spec:
+                nodeSelector:
+                  kubernetes.io/hostname: cicd-master
+                tolerations:
+                  - operator: Exists

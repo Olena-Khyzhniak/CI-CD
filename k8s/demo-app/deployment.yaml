@@ -27,7 +27,7 @@ spec:
         app: demo-app
         version: v1
       annotations:
-        sidecar.istio.io/inject: "false"  # Disable Istio sidecar injection at pod level (cross-node VXLAN issue, see GitHub issue)
+        sidecar.istio.io/inject: "true"  # Enable Istio sidecar injection — CI/CD deploy will activate this
     spec:
       imagePullSecrets:
         - name: ecr-credentials   # created/refreshed by CI/CD on every deploy (ECR token valid 12h)
