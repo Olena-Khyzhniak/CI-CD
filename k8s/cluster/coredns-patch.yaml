@@ -1,0 +1,18 @@
+# coredns-patch.yaml
+# Patches CoreDNS deployment and kube-dns service to fix cross-node DNS failure.
+#
+# Problem: kube-proxy round-robins DNS queries to all CoreDNS endpoints.
+# When the selected endpoint is on a different node, the packet gets dropped
+# after VXLAN decap on the destination node (conntrack insert_failed).
+#
+# Fix 1 — Deployment: scale to 2 replicas with pod anti-affinity so each node
+#          always has a local CoreDNS pod.
+# Fix 2 — Service: internalTrafficPolicy=Local so kube-proxy only DNATs to the
+#          endpoint on the same node, eliminating all cross-node DNS traffic.
+#
+# NOTE: This file is applied via kubectl patch (not apply) in ci-cd.yaml
+#       because kube-dns Service and coredns Deployment are managed by MicroK8s
+#       and do not have the full spec required by kubectl apply.
+#
+# The patches are applied by: scripts/apply-cluster-patches.sh
+# That script is called from .github/workflows/ci-cd.yaml on every deploy.

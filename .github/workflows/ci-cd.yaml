@@ -84,6 +84,10 @@ jobs:
             cd /home/ubuntu/CI-CD
             git pull origin main
 
+            # Apply cluster-wide fixes (CoreDNS locality + Calico rp_filter) before app deploy.
+            # Idempotent — safe to run on every deploy.
+            bash scripts/apply-cluster-patches.sh
+
             # Apply namespace first so all subsequent commands have a namespace to target
             microk8s kubectl apply -f k8s/demo-app/namespace.yaml
 
