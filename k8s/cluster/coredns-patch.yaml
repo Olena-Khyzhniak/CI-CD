@@ -10,33 +10,9 @@
 # Fix 2 — Service: internalTrafficPolicy=Local so kube-proxy only DNATs to the
 #          endpoint on the same node, eliminating all cross-node DNS traffic.
 #
-# Apply: kubectl apply -f k8s/cluster/coredns-patch.yaml
-# This file is also applied automatically on every CI/CD deploy.
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: coredns
-  namespace: kube-system
-spec:
-  replicas: 2
-  template:
-    spec:
-      affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchExpressions:
-                  - key: k8s-app
-                    operator: In
-                    values:
-                      - kube-dns
-              topologyKey: kubernetes.io/hostname
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: kube-dns
-  namespace: kube-system
-spec:
-  internalTrafficPolicy: Local
+# NOTE: This file is applied via kubectl patch (not apply) in ci-cd.yaml
+#       because kube-dns Service and coredns Deployment are managed by MicroK8s
+#       and do not have the full spec required by kubectl apply.
+#
+# The patches are applied by: scripts/apply-cluster-patches.sh
+# That script is called from .github/workflows/ci-cd.yaml on every deploy.
