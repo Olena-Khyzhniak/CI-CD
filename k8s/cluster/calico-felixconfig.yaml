@@ -21,7 +21,8 @@ metadata:
 spec:
   # Disable AWS src/dst check management — lets Felix set rp_filter=0 on
   # VXLAN interfaces, which is required for cross-node pod communication.
-  AWSSrcDstCheck: "Disable"
+  # Field name is awsSrcDstCheck (lowercase aws) in Calico v3.29+
+  awsSrcDstCheck: "Disable"
   # Keep existing settings from cluster:
   bpfConnectTimeLoadBalancing: TCP
   bpfHostNetworkedNATWithoutCTLB: Enabled
