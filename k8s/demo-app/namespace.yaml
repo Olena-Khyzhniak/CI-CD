@@ -5,4 +5,4 @@ metadata:
   name: demo-app
   labels:
     name: demo-app   # k8s label to identify the namespace
-    istio-injection: enabled  # Istio sidecar injection enabled (VXLAN rp_filter fix applied, failurePolicy=Ignore)
+    # istio-injection: enabled  # Disabled: cross-node TCP broken (VXLAN conntrack issue, tracked in GitHub issue)
