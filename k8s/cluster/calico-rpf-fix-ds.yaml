@@ -1,0 +1,145 @@
+---
+# calico-rpf-fix-ds.yaml
+#
+# DaemonSet that keeps cross-node TCP rules alive on every node.
+#
+# Root cause: Calico Felix sets rp_filter=2 on vxlan.calico and keeps
+# the cali-rpf-skip chain EMPTY, causing all VXLAN cross-node TCP packets
+# to be dropped by the RPF-validmark DROP rule in cali-FORWARD.
+# Additionally, Calico inserts NOTRACK for UDP/4789 so inner TCP packets
+# have no conntrack entries and are dropped by FORWARD ESTABLISHED/RELATED.
+#
+# Fix (3 rules, all idempotent, re-applied every 30s):
+#   1. cali-rpf-skip: MARK 0x0/0x40000 on vxlan.calico — bypass RPF check
+#   2. raw PREROUTING: CT on vxlan.calico — force conntrack for inner TCP
+#   3. sysctl nf_conntrack_tcp_be_liberal=1 — accept out-of-window TCP segments
+#
+# Tested: TCP works when all 3 rules are present simultaneously.
+#         Felix resets rules within ~60s; this DaemonSet re-inserts every 30s.
+#
+# Implementation: uses nicolaka/netshoot with nsenter to run iptables-legacy
+# in the host's mount + network namespace, bypassing container libc issues.
+#
+# Apply:
+#   microk8s.kubectl apply -f k8s/cluster/calico-rpf-fix-ds.yaml
+#
+# Verify:
+#   microk8s.kubectl logs -n kube-system -l app=calico-rpf-fix --tail=10
+#   sudo iptables-legacy -t raw -L cali-rpf-skip -n
+#   sudo iptables-legacy -t raw -L PREROUTING -n | grep vxlan
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: calico-rpf-fix
+  namespace: kube-system
+  labels:
+    app: calico-rpf-fix
+spec:
+  selector:
+    matchLabels:
+      app: calico-rpf-fix
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: calico-rpf-fix
+    spec:
+      tolerations:
+        - operator: Exists
+      hostNetwork: true
+      hostPID: true
+      priorityClassName: system-node-critical
+
+      initContainers:
+        - name: apply-rules
+          image: ghcr.io/nicolaka/netshoot:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          # nsenter -t 1 -m -u -i -n -p -- runs a command in the host's
+          # mount namespace (PID 1 = host init), so iptables-legacy from
+          # /sbin on the host is used with host libc — no segfault.
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              NS="nsenter -t 1 -m -u -i -n --"
+
+              echo "[calico-rpf-fix] waiting for cali-rpf-skip chain (up to 120s)..."
+              for i in $(seq 1 24); do
+                if $NS iptables-legacy -t raw -L cali-rpf-skip -n >/dev/null 2>&1; then
+                  echo "[calico-rpf-fix] chain ready after ${i}x5s"
+                  break
+                fi
+                echo "[calico-rpf-fix] not ready, sleeping 5s ($i/24)..."
+                sleep 5
+              done
+
+              # Rule 1: bypass RPF check for vxlan.calico traffic
+              if $NS iptables-legacy -t raw -C cali-rpf-skip \
+                   -i vxlan.calico -j MARK --set-xmark 0x0/0x40000 2>/dev/null; then
+                echo "[calico-rpf-fix] rpf-skip rule already present"
+              else
+                $NS iptables-legacy -t raw -I cali-rpf-skip 1 \
+                  -i vxlan.calico -j MARK --set-xmark 0x0/0x40000
+                echo "[calico-rpf-fix] rpf-skip rule inserted"
+              fi
+
+              # Rule 2: force conntrack for inner pod-to-pod traffic
+              if $NS iptables-legacy -t raw -C PREROUTING \
+                   -i vxlan.calico -j CT 2>/dev/null; then
+                echo "[calico-rpf-fix] CT rule already present"
+              else
+                $NS iptables-legacy -t raw -I PREROUTING 1 \
+                  -i vxlan.calico -j CT
+                echo "[calico-rpf-fix] CT rule inserted"
+              fi
+
+              # Rule 3: accept out-of-window TCP segments
+              $NS sysctl -w net.netfilter.nf_conntrack_tcp_be_liberal=1
+              echo "[calico-rpf-fix] be_liberal=1 set"
+              echo "[calico-rpf-fix] initContainer done"
+
+      containers:
+        - name: keep-alive
+          image: ghcr.io/nicolaka/netshoot:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          command:
+            - /bin/sh
+            - -c
+            - |
+              NS="nsenter -t 1 -m -u -i -n --"
+              echo "[calico-rpf-fix] keep-alive started (interval: 5s)"
+              while true; do
+                sleep 5
+
+                # Rule 1: rpf-skip
+                if ! $NS iptables-legacy -t raw -C cali-rpf-skip \
+                     -i vxlan.calico -j MARK --set-xmark 0x0/0x40000 2>/dev/null; then
+                  $NS iptables-legacy -t raw -I cali-rpf-skip 1 \
+                    -i vxlan.calico -j MARK --set-xmark 0x0/0x40000
+                  echo "[calico-rpf-fix] $(date -u +%T) rpf-skip re-inserted"
+                fi
+
+                # Rule 2: CT
+                if ! $NS iptables-legacy -t raw -C PREROUTING \
+                     -i vxlan.calico -j CT 2>/dev/null; then
+                  $NS iptables-legacy -t raw -I PREROUTING 1 \
+                    -i vxlan.calico -j CT
+                  echo "[calico-rpf-fix] $(date -u +%T) CT re-inserted"
+                fi
+
+                # Rule 3: be_liberal
+                $NS sysctl -w net.netfilter.nf_conntrack_tcp_be_liberal=1 >/dev/null 2>&1 || true
+              done
+          resources:
+            requests:
+              cpu: "1m"
+              memory: "8Mi"
+            limits:
+              cpu: "10m"
+              memory: "32Mi"
