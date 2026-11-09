@@ -27,7 +27,7 @@ spec:
         app: demo-app
         version: v1
       annotations:
-        sidecar.istio.io/inject: "false"  # Disabled: cross-node TCP broken (VXLAN conntrack issue, tracked in GitHub issue)
+        sidecar.istio.io/inject: "true"   # Enabled: cross-node TCP fixed (EC2 src/dst check disabled + vxlanMode CrossSubnet)
     spec:
       imagePullSecrets:
         - name: ecr-credentials   # created/refreshed by CI/CD on every deploy (ECR token valid 12h)

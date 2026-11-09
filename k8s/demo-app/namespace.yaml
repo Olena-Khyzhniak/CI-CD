@@ -4,5 +4,5 @@ kind: Namespace
 metadata:
   name: demo-app
   labels:
-    name: demo-app   # k8s label to identify the namespace
-    # istio-injection: enabled  # Disabled: cross-node TCP broken (VXLAN conntrack issue, tracked in GitHub issue)
+    name: demo-app
+    istio-injection: enabled  # Enabled: cross-node TCP fixed (EC2 src/dst check disabled + vxlanMode CrossSubnet)
