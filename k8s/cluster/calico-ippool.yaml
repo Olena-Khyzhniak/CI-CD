@@ -1,0 +1,50 @@
+# calico-ippool.yaml
+# Calico IPPool configuration for MicroK8s on AWS EC2 (single VPC subnet).
+#
+# Problem: default IPPool created by MicroK8s uses vxlanMode=Always, which
+# forces VXLAN encapsulation for ALL pod-to-pod traffic including traffic
+# between nodes in the SAME VPC subnet. This causes cross-node TCP failures:
+#   - Asymmetric routing: packets arrive on vxlan.calico but return route
+#     points to ens5 → RPF check failures in Calico iptables rules
+#   - The cali-rpf-skip chain remains empty → DROP rule fires
+#
+# Fix: vxlanMode: CrossSubnet
+#   Calico only uses VXLAN when traffic crosses an IP subnet boundary.
+#   Since both nodes are in 172.31.32.0/20, Calico routes pod traffic
+#   directly via the host network — no VXLAN, no RPF issues.
+#
+# From official Calico AWS docs:
+#   "Within a single VPC subnet Calico doesn't need an overlay, which means
+#    high performance networking for your containers."
+#   https://docs.tigera.io/calico/latest/reference/public-cloud/aws
+#
+# Cluster topology (confirmed):
+#   cicd-master: 172.31.38.112 → subnet 172.31.32.0/20
+#   cicd-worker: 172.31.40.28  → subnet 172.31.32.0/20  (same!)
+#
+# NOTE: Changing vxlanMode will briefly interrupt in-flight connections.
+#       Plan for ~10s disruption as Felix re-programs routes.
+#
+# Apply: microk8s.kubectl apply -f k8s/cluster/calico-ippool.yaml
+---
+apiVersion: crd.projectcalico.org/v1
+kind: IPPool
+metadata:
+  name: default-ipv4-ippool
+spec:
+  cidr: 10.1.0.0/16
+  # CrossSubnet: use VXLAN only when traffic crosses subnet boundaries.
+  # Both nodes are in 172.31.32.0/20 (same subnet) → traffic is routed
+  # directly via ens5 with pod IPs, no VXLAN overhead.
+  #
+  # PREREQUISITE: EC2 Source/Destination Check must be DISABLED on both
+  # instances (Actions → Networking → Change source/destination check → Stop).
+  # Without this, AWS drops packets with pod source IPs at the hardware level.
+  vxlanMode: CrossSubnet
+  ipipMode: Never
+  natOutgoing: true
+  nodeSelector: all()
+  blockSize: 26
+  allowedUses:
+    - Workload
+    - Tunnel

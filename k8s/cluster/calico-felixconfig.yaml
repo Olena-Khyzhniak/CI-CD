@@ -1,31 +1,39 @@
 # calico-felixconfig.yaml
-# FelixConfiguration patch to fix rp_filter on VXLAN interfaces in AWS.
+# FelixConfiguration for MicroK8s/Calico on AWS EC2 (iptables mode, single VPC subnet).
 #
-# Problem: Calico Felix sets rp_filter=1 (strict) on all interfaces including
-# vxlan.calico. On AWS with asymmetric routing (VXLAN decapped packets arrive
-# on vxlan.calico but the reverse-path lookup may choose ens5), strict rp_filter
-# drops legitimate cross-node pod traffic silently.
+# Key findings (from official Calico docs + live debugging):
+#   - Cluster is running in iptables dataplane mode (bpfEnabled is NOT set)
+#   - Both nodes (master 172.31.38.112, worker 172.31.40.28) are in the SAME
+#     VPC subnet (172.31.32.0/20) — overlay is NOT required between them
+#   - Root cause of cross-node TCP failure: vxlanMode=Always forces VXLAN even
+#     within the same subnet, causing asymmetric routing + RPF check failures
+#   - The real fix is in calico-ippool.yaml: vxlanMode CrossSubnet → Calico
+#     routes traffic directly (no VXLAN) within 172.31.32.0/20
 #
-# Fix: AWSSrcDstCheck=Disable tells Felix to set rp_filter=0 on the VXLAN
-# interface, which is required for correct VXLAN operation on AWS EC2.
-# This is the officially documented Calico setting for AWS deployments.
+# This FelixConfiguration keeps only the settings that are relevant and valid
+# for iptables mode. BPF-specific fields (bpfEnforceRPF, bpfForceTrackPackets,
+# bpfConnectTimeLoadBalancing, bpfHostNetworkedNATWithoutCTLB) are removed —
+# they have no effect when bpfEnabled is false/unset.
 #
-# Reference: https://docs.tigera.io/calico/latest/reference/resources/felixconfig
+# References:
+#   https://docs.tigera.io/calico/latest/reference/public-cloud/aws
+#   https://docs.tigera.io/calico/latest/reference/resources/felixconfig
 #
-# Apply: kubectl apply -f k8s/cluster/calico-felixconfig.yaml
+# Apply: microk8s.kubectl apply -f k8s/cluster/calico-felixconfig.yaml
 ---
 apiVersion: crd.projectcalico.org/v1
 kind: FelixConfiguration
 metadata:
   name: default
 spec:
-  # Disable AWS src/dst check management — lets Felix set rp_filter=0 on
-  # VXLAN interfaces, which is required for cross-node pod communication.
-  # Field name is awsSrcDstCheck (lowercase aws) in Calico v3.29+
+  # Disable AWS src/dst check management on EC2 instances.
+  # Required so Felix can set rp_filter correctly on tunnel interfaces.
   awsSrcDstCheck: "Disable"
-  # Keep existing settings from cluster:
-  bpfConnectTimeLoadBalancing: TCP
-  bpfHostNetworkedNATWithoutCTLB: Enabled
+
+  # Allow traffic from workload endpoints to the host (required for health checks,
+  # NodePort etc). MicroK8s sets this to ACCEPT by default in the DaemonSet env.
+  defaultEndpointToHostAction: Accept
+
   floatingIPs: Disabled
   logSeverityScreen: Info
   reportingInterval: 0s
